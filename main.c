@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 enum {
     MAX_WIDTH = 640, /* Width of game window */
@@ -66,6 +67,11 @@ main(void)
         SDL_Log("Can't initialize SDL: %s", SDL_GetError());
         return EXIT_FAILURE;
     }
+    if (TTF_Init() == -1) {
+        SDL_Log("Can't initialize TTF: %s", TTF_GetError());
+        SDL_Quit();
+        return EXIT_FAILURE;
+    }
     w = SDL_CreateWindow("Pong",
                          SDL_WINDOWPOS_UNDEFINED,
                          SDL_WINDOWPOS_UNDEFINED,
@@ -77,7 +83,7 @@ main(void)
     t = loadtex(r, "./ball.bmp");
     if (t == NULL) { goto error; }
 
-    reset(&g, 0, 1);
+    reset(&g, 1, 1);
     if (draw(r, t, &g) != 0) { goto error; }
     
     for (done = 0; !done; ) {
@@ -133,6 +139,7 @@ shutdown:
     if (t != NULL) SDL_DestroyTexture(t);
     if (r != NULL) SDL_DestroyRenderer(r);
     if (w != NULL) SDL_DestroyWindow(w);
+    TTF_Quit();
     SDL_Quit();
     return rc;
 }
@@ -181,8 +188,14 @@ loadtex(SDL_Renderer *r, char *path)
 static int
 draw(SDL_Renderer *r, SDL_Texture *t, Game *g)
 {
+    static SDL_Color black = {0, 0, 0, 0};
+    
     SDL_Rect tr;
+    TTF_Font *font;
     int rc;
+    char buf[16];
+    SDL_Surface *s;
+    char *path;
 
     assert(r != NULL);
     assert(t != NULL);
@@ -193,14 +206,16 @@ draw(SDL_Renderer *r, SDL_Texture *t, Game *g)
     tr.w = g->b.r.w;
     tr.h = g->b.r.h;
 
+    /* Clear screen */
     rc = clear(r);
     if (rc != 0)
         return rc;
+    
     /* Render ball */
     rc = SDL_RenderCopy(r, t, &tr, &g->b.r);
     if (rc != 0)
         return rc;
-    /* Render paddle */
+    /* Render paddles */
     rc = SDL_SetRenderDrawColor(r, 116, 168, 169, 255);
     if (rc != 0)
         return rc;
@@ -210,6 +225,50 @@ draw(SDL_Renderer *r, SDL_Texture *t, Game *g)
     rc = SDL_RenderFillRect(r, &g->p2.b.r);
     if (rc != 0)
         return rc;
+    
+    /* Render player 1 score */
+    path = "/Users/jfe/go/src/perkeep.org/clients/web/embed/opensans/OpenSans.ttf";
+    font = TTF_OpenFont(path, 24);
+    if (font == NULL) {
+        SDL_Log("%s", TTF_GetError());
+        return -1;
+    }
+    sprintf(buf, "%d", g->p1.s);
+    s = TTF_RenderText_Solid(font, buf, black);
+    if (s == NULL)
+        return -1;
+    t = SDL_CreateTextureFromSurface(r, s);
+    SDL_FreeSurface(s);
+    if (t == NULL) {
+        return -1;
+    }
+    tr.x = 5;
+    tr.y = MAX_HEIGHT - 5 - s->h;
+    tr.w = s->w;
+    tr.h = s->h;
+    SDL_RenderCopy(r, t, NULL, &tr);
+    SDL_DestroyTexture(t);
+    
+    /* Render player 2 score */
+    sprintf(buf, "%d", g->p2.s);
+    s = TTF_RenderText_Solid(font, buf, black);
+    if (s == NULL)
+        return -1;
+    t = SDL_CreateTextureFromSurface(r, s);
+    SDL_FreeSurface(s);
+    if (t == NULL) {
+        return -1;
+    }
+    tr.x = MAX_WIDTH - 5 - s->w;
+    tr.y = MAX_HEIGHT - 5 - s->h;
+    tr.w = s->w;
+    tr.h = s->h;
+    SDL_RenderCopy(r, t, NULL, &tr);
+    SDL_DestroyTexture(t);
+    
+    /* SDL_Log("Closing font"); */
+    TTF_CloseFont(font);
+    /* Update screen */
     SDL_RenderPresent(r);
     return 0;
 }

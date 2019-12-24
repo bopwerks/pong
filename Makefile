@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 CFLAGS = -pedantic -Wall `sdl2-config --cflags`
-LDFLAGS = `sdl2-config --libs`
+LDFLAGS = `sdl2-config --libs` -lSDL2_ttf
 TARGET = pong
 OBJ = main.o
 
